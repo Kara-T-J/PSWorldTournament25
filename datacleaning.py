@@ -5,7 +5,7 @@ import pandas as pd
 
 data = pd.read_excel("NotesWT25.xlsx", sheet_name="Notes2")
 
-# Remove null values
+# Database preparation
 
 def clean_data(df):
     
@@ -16,18 +16,16 @@ def clean_data(df):
             raise ValueError(f"Colonne manquante: {col}")
 
     df = df.copy()
-    # S'assurer que Note est numérique
+
     df['Note'] = pd.to_numeric(df['Note'], errors='coerce')
 
-    # Supprimer lignes avec valeurs manquantes essentielles
     df = df.dropna(subset=required)
 
     group_cols = ['Participant', 'Round', 'Juge']
-    # Déterminer les groupes où toutes les notes sont égales à 0
+
     grouped = df.groupby(group_cols)['Note'].apply(lambda s: s.eq(0).all())
     groups_all_zero = set(grouped[grouped].index)
 
-    # Boucle sur toutes les lignes et marque les indices à supprimer
     to_drop = []
     for idx, row in df.iterrows():
         key = (row['Participant'], row['Round'], row['Juge'])
