@@ -39,6 +39,11 @@ def empty_fig(message):
     fig.update_xaxes(visible=False)
     fig.update_yaxes(visible=False)
     fig.update_layout(margin=dict(l=20, r=20, t=40, b=40))
+    return finalize_fig(fig)
+
+
+def finalize_fig(fig):
+    fig.update_layout(title=None, showlegend=False, xaxis_title=None, yaxis_title=None)
     return fig
 
 
@@ -73,7 +78,7 @@ def heatmap_or_empty(pivot, title, empty_message, colorscale="RdBu", zmin=None, 
     # Render heatmaps with in-cell values; fallback to a placeholder when empty.
     if pivot.empty:
         return empty_fig(empty_message)
-    return px.imshow(
+    fig = px.imshow(
         pivot,
         aspect="auto",
         title=title,
@@ -82,6 +87,7 @@ def heatmap_or_empty(pivot, title, empty_message, colorscale="RdBu", zmin=None, 
         zmin=zmin,
         zmax=zmax,
     )
+    return finalize_fig(fig)
 
 def column_widths(frame):
     widths = {}
@@ -108,6 +114,8 @@ TRANSLATIONS = {
         "criteria": "Critères...",
         "kpi_notes": "Nombre de notes",
         "kpi_participants": "Participants",
+        "hide_controls": "Masquer les filtres",
+        "show_controls": "Afficher les filtres",
         "tab_overview": "Vue d'ensemble",
         "tab_judges": "Juges",
         "tab_criteria": "Critères",
@@ -120,12 +128,12 @@ TRANSLATIONS = {
         "box_rounds": "Notes par round",
         "judge_mean": "Moyenne par juge",
         "judge_bias": "Biais par juge (moyenne - globale)",
-        "judge_heatmap": "Carte thermique juge x critère (moyenne)",
-        "judge_std_heatmap": "Carte thermique juge x critère (dispersion)",
-        "judge_range_heatmap": "Carte thermique juge x critère (amplitude)",
-        "judge_severity_heatmap": "évérité par juge et critère (écart à la moyenne)",
-        "judge_total_corr_heatmap": "Corrélation au Total par juge et critère",
-        "judge_total_wo_corr_heatmap": "Corrélation critère vs total sans critère (par juge)",
+        "judge_heatmap": "Moyenne par critère",
+        "judge_std_heatmap": "Dispersion par critère",
+        "judge_range_heatmap": "Amplitude par critère",
+        "judge_severity_heatmap": "Sévérité par critère",
+        "judge_total_corr_heatmap": "Corrélation au Total",
+        "judge_total_wo_corr_heatmap": "Corrélation critère au total du reste",
         "judge_crit_bias_heatmap": "Biais relatif juge x critère (contrôle sévérité)",
         "judge_part_bias_heatmap": "Biais relatif juge x participant (contrôle sévérité)",
         "criteria_mean": "Moyenne par critère",
@@ -148,6 +156,8 @@ TRANSLATIONS = {
         "criteria": "Criteria...",
         "kpi_notes": "Number of scores",
         "kpi_participants": "Participants",
+        "hide_controls": "Hide filters",
+        "show_controls": "Show filters",
         "tab_overview": "Overview",
         "tab_judges": "Judges",
         "tab_criteria": "Criteria",
@@ -197,63 +207,68 @@ COLUMN_WIDTHS = column_widths(df)
 COLUMN_WIDTHS = column_widths(df)
 
 app.layout = html.Div([
-    html.H1(id="title", style={"textAlign": "center", "marginBottom": "20px"}),
     html.Div([
-        html.Span(id="lang-label", style={"marginRight": "10px"}),
-        dcc.RadioItems(
-            id="lang",
-            options=[
-                {"label": "FR", "value": "fr"},
-                {"label": "EN", "value": "en"},
-            ],
-            value="fr",
-            inline=True,
-        ),
-    ], style={"display": "flex", "alignItems": "center", "marginBottom": "10px"}),
-    html.Div([
-        html.Button(id="btn-select-all", n_clicks=0),
-        html.Button(id="btn-reset", n_clicks=0, style={"marginLeft": "10px"}),
-    ], style={"marginBottom": "10px"}),
+        html.H1(id="title", style={"margin": "0"}),
+        html.Button(id="btn-toggle-header", n_clicks=0),
+    ], style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "16px"}),
     html.Div([
         html.Div([
-            dcc.Dropdown(
-                options=ALL_PARTICIPANTS,
-                value=[],
-                id="dropdown-participant",
-                multi=True,
+            html.Span(id="lang-label", style={"marginRight": "10px"}),
+            dcc.RadioItems(
+                id="lang",
+                options=[
+                    {"label": "FR", "value": "fr"},
+                    {"label": "EN", "value": "en"},
+                ],
+                value="fr",
+                inline=True,
             ),
-        ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+        ], style={"display": "flex", "alignItems": "center", "marginBottom": "10px"}),
         html.Div([
-            dcc.Dropdown(
-                options=ALL_JUDGES,
-                value=[],
-                id="dropdown-judge",
-                multi=True,
-            ),
-        ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+            html.Button(id="btn-select-all", n_clicks=0),
+            html.Button(id="btn-reset", n_clicks=0, style={"marginLeft": "10px"}),
+        ], style={"marginBottom": "10px"}),
         html.Div([
-            dcc.Dropdown(
-                options=ALL_ROUNDS,
-                value=[],
-                id="dropdown-round",
-                multi=True,
-            ),
-        ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+            html.Div([
+                dcc.Dropdown(
+                    options=ALL_PARTICIPANTS,
+                    value=[],
+                    id="dropdown-participant",
+                    multi=True,
+                ),
+            ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+            html.Div([
+                dcc.Dropdown(
+                    options=ALL_JUDGES,
+                    value=[],
+                    id="dropdown-judge",
+                    multi=True,
+                ),
+            ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+            html.Div([
+                dcc.Dropdown(
+                    options=ALL_ROUNDS,
+                    value=[],
+                    id="dropdown-round",
+                    multi=True,
+                ),
+            ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+            html.Div([
+                dcc.Dropdown(
+                    options=ALL_CRITERIA,
+                    value=[],
+                    id="dropdown-criteria",
+                    multi=True,
+                ),
+            ], style={"flex": "1 1 45%", "minWidth": "260px"}),
+        ], style={"display": "flex", "flexWrap": "wrap", "gap": "10px", "marginBottom": "10px"}),
         html.Div([
-            dcc.Dropdown(
-                options=ALL_CRITERIA,
-                value=[],
-                id="dropdown-criteria",
-                multi=True,
-            ),
-        ], style={"flex": "1 1 45%", "minWidth": "260px"}),
-    ], style={"display": "flex", "flexWrap": "wrap", "gap": "10px", "marginBottom": "10px"}),
-    html.Div([
-        html.Div([
-            html.Div(id="kpi-notes", className="kpi"),
-            html.Div(id="kpi-participants", className="kpi"),
-        ], style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))", "gap": "10px"}),
-    ], style={"marginBottom": "10px"}),
+            html.Div([
+                html.Div(id="kpi-notes", className="kpi"),
+                html.Div(id="kpi-participants", className="kpi"),
+            ], style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))", "gap": "10px"}),
+        ], style={"marginBottom": "10px"}),
+    ], id="header-panel"),
     dcc.Tabs(id="tabs", value="overview"),
     html.Div(id="tab-content"),
 ])
@@ -284,6 +299,19 @@ def update_labels(lang):
         t["rounds"],
         t["criteria"],
     )
+
+
+@callback(
+    Output("header-panel", "style"),
+    Output("btn-toggle-header", "children"),
+    Input("btn-toggle-header", "n_clicks"),
+    Input("lang", "value"),
+)
+def toggle_header(n_clicks, lang):
+    t = TRANSLATIONS[lang]
+    if n_clicks and n_clicks % 2 == 1:
+        return {"display": "none"}, t["show_controls"]
+    return {"display": "block"}, t["hide_controls"]
 
 
 @callback(
@@ -355,20 +383,20 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
             fig_criteria = empty_fig(t["no_data"])
             fig_judges = empty_fig(t["no_data"])
         else:
-            fig_criteria = px.violin(
+            fig_criteria = finalize_fig(px.violin(
                 dff_base,
                 x=COL_CRITERIA,
                 y=COL_SCORE,
                 box=True,
                 points="all",
-            )
-            fig_judges = px.violin(
+            ))
+            fig_judges = finalize_fig(px.violin(
                 dff_base,
                 x=COL_JUDGE,
                 y=COL_SCORE,
                 box=True,
                 points="all",
-            )
+            ))
 
         content = html.Div([
             html.Div(grid, style={"flex": "0 0 auto", "overflowX": "auto"}),
@@ -384,14 +412,13 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
             fig_std = empty_fig(t["no_data"])
             fig_severity = empty_fig(t["no_data"])
         else:
-            fig_violin = px.violin(
+            fig_violin = finalize_fig(px.violin(
                 dff_base,
                 x=COL_JUDGE,
                 y=COL_SCORE,
                 box=True,
                 points="all",
-                title=t["violin_judges"],
-            )
+            ))
             mean_pivot = dff_base.pivot_table(index=COL_JUDGE, columns=COL_CRITERIA, values=COL_SCORE, aggfunc="mean")
             std_pivot = dff_base.pivot_table(index=COL_JUDGE, columns=COL_CRITERIA, values=COL_SCORE, aggfunc="std")
             crit_means = dff_base.groupby(COL_CRITERIA)[COL_SCORE].mean()
@@ -423,25 +450,26 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
             )
 
         content = html.Div([
-            dcc.Graph(figure=fig_violin),
-            dcc.Graph(figure=fig_mean),
-            dcc.Graph(figure=fig_std),
-            dcc.Graph(figure=fig_severity),
-        ], className="graph-grid")
+            dcc.Graph(figure=fig_violin, className="full-row"),
+            html.Div([
+                dcc.Graph(figure=fig_mean),
+                dcc.Graph(figure=fig_std),
+                dcc.Graph(figure=fig_severity),
+            ], className="graph-grid-3"),
+        ], className="stacked")
     elif tab == "criteria":
         if dff_base.empty:
             fig_violin = empty_fig(t["no_data"])
             fig_corr_total_wo = empty_fig(t["no_data"])
             fig_corr = empty_fig(t["no_data"])
         else:
-            fig_violin = px.violin(
+            fig_violin = finalize_fig(px.violin(
                 dff_base,
                 x=COL_CRITERIA,
                 y=COL_SCORE,
                 box=True,
                 points="all",
-                title=t["violin_criteria"],
-            )
+            ))
 
             corr_total_wo_pivot = pd.DataFrame()
             if TOTAL_LABEL is not None and not dff.empty:
@@ -491,7 +519,7 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
                 fig_corr = empty_fig(t["no_data"])
             else:
                 corr = pivot.corr().mask(np.eye(len(pivot.columns), dtype=bool))
-                fig_corr = px.imshow(
+                fig_corr = finalize_fig(px.imshow(
                     corr,
                     aspect="auto",
                     title=t["criteria_corr"],
@@ -499,42 +527,44 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
                     color_continuous_scale="RdBu",
                     zmin=-1,
                     zmax=1,
-                )
+                ))
 
         content = html.Div([
-            dcc.Graph(figure=fig_violin),
-            dcc.Graph(figure=fig_corr_total_wo),
-            dcc.Graph(figure=fig_corr),
-        ], className="graph-grid")
+            html.Div([
+                dcc.Graph(figure=fig_violin),
+            ], style={"flex": "1 1 55%"}),
+            html.Div([
+                dcc.Graph(figure=fig_corr_total_wo),
+                dcc.Graph(figure=fig_corr),
+            ], style={"flex": "1 1 45%", "display": "flex", "flexDirection": "column", "gap": "20px"}),
+        ], style={"display": "flex", "gap": "20px", "alignItems": "stretch", "flexWrap": "nowrap"})
     elif tab == "rounds":
         if dff_total.empty:
             fig_total_rounds = empty_fig(t["no_data"])
         else:
-            fig_total_rounds = px.violin(
+            fig_total_rounds = finalize_fig(px.violin(
                 dff_total,
                 x=COL_ROUND,
                 y=COL_SCORE,
                 box=True,
                 points="all",
-                title=t["violin_rounds_total"],
-            )
+            ))
 
         if dff_base.empty:
             fig_trend = empty_fig(t["no_data"])
         else:
             trend = dff_base.groupby([COL_ROUND, COL_CRITERIA])[COL_SCORE].mean().reset_index()
-            fig_trend = px.line(
+            fig_trend = finalize_fig(px.line(
                 trend,
                 x=COL_ROUND,
                 y=COL_SCORE,
                 color=COL_CRITERIA,
                 markers=True,
-                title=t["rounds_trend"],
-            )
+            ))
 
         content = html.Div([
-            dcc.Graph(figure=fig_total_rounds),
-            dcc.Graph(figure=fig_trend),
+            dcc.Graph(figure=fig_total_rounds, className="rounds-graph"),
+            dcc.Graph(figure=fig_trend, className="rounds-graph"),
         ], className="graph-grid")
     else:
         content = html.Div([

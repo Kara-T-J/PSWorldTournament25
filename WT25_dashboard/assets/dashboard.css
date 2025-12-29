@@ -1,27 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@8..144,300..800&display=swap");
+
+:root {
+  --bg: #f6f3ee;
+  --panel: #ffffff;
+  --panel-border: rgba(20, 20, 20, 0.08);
+  --ink: #151515;
+  --muted: rgba(21, 21, 21, 0.6);
+  --shadow: 0 12px 30px rgba(18, 18, 18, 0.08);
+  --accent: #2f7d6a;
+  --accent-soft: rgba(47, 125, 106, 0.12);
+  --accent-warm: #e67c73;
+}
+
 body {
-  font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
-  background: #f7f7f2;
-  color: #1a1a1a;
+  font-family: "Google Sans Flex", "Google Sans", "Segoe UI", sans-serif;
+  background:
+    radial-gradient(circle at 8% 0%, rgba(47, 125, 106, 0.14), transparent 40%),
+    radial-gradient(circle at 92% 6%, rgba(230, 124, 115, 0.12), transparent 45%),
+    var(--bg);
+  color: var(--ink);
   margin: 0;
 }
 
 #react-entry-point {
-  padding: 20px 24px 40px;
+  padding: 28px 32px 52px;
+}
+
+h1 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .kpi {
-  background: #ffffff;
-  border: 1px solid #e3e3dd;
-  border-radius: 10px;
-  padding: 10px 14px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  font-size: 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  padding: 12px 18px;
+  box-shadow: var(--shadow);
+  font-size: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
-.dash-table-container .dash-spreadsheet-container {
-  border-radius: 8px;
+button {
+  border-radius: 12px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  padding: 8px 14px;
+  box-shadow: var(--shadow);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.dash-dropdown,
+.Select-control {
+  border-radius: 12px !important;
+  border-color: var(--panel-border) !important;
+}
+
+.Select-menu-outer {
+  border-radius: 12px !important;
+  border: 1px solid var(--panel-border) !important;
+  box-shadow: var(--shadow) !important;
+}
+
+.tabs {
+  border-radius: 16px;
   overflow: hidden;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.tab {
+  padding: 14px 18px;
+  font-weight: 600;
+  color: var(--muted);
+  border: none !important;
+}
+
+.tab--selected {
+  color: var(--ink);
+  background: var(--accent-soft) !important;
 }
 
 .graph-grid {
@@ -30,16 +96,49 @@ body {
   gap: 20px;
 }
 
+.graph-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.stacked {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.full-row {
+  width: 100%;
+}
+
 .graph-grid .js-plotly-plot {
   width: 100%;
 }
 
 .graph-grid .dash-graph {
   width: 100%;
+  background: rgba(50, 255, 255, 0.9);
+}
+
+.graph-grid-3 .dash-graph {
+  width: 100%;
+}
+
+.rounds-graph {
+  min-height: 630px;
+  max-height: 630px;
 }
 
 @media (max-width: 900px) {
+  #react-entry-point {
+    padding: 22px 18px 36px;
+  }
+
   .graph-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .graph-grid-3 {
     grid-template-columns: 1fr;
   }
 }
