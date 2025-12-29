@@ -1,0 +1,45 @@
+body {
+  font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  background: #f7f7f2;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+#react-entry-point {
+  padding: 20px 24px 40px;
+}
+
+.kpi {
+  background: #ffffff;
+  border: 1px solid #e3e3dd;
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.dash-table-container .dash-spreadsheet-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.graph-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.graph-grid .js-plotly-plot {
+  width: 100%;
+}
+
+.graph-grid .dash-graph {
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .graph-grid {
+    grid-template-columns: 1fr;
+  }
+}

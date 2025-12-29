@@ -1,0 +1,6 @@
+dash
+dash-ag-grid
+numpy
+pandas
+plotly
+openpyxl

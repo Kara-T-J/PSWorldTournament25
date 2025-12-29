@@ -3,7 +3,7 @@
 # Import
 import pandas as pd
 
-data = pd.read_excel("NotesWT25.xlsx", sheet_name="Notes2")
+data = pd.read_excel("WT25_notes_raw.xlsx", sheet_name="Notes2")
 
 # Database preparation
 
@@ -36,4 +36,4 @@ def clean_data(df):
     return cleaned_df
 
 cleaned_df = clean_data(data)
-cleaned_df.to_excel("NotesWT25_cleaned.xlsx", index=False)
+cleaned_df.to_excel("WT25_notes_cleaned.xlsx", index=False)
