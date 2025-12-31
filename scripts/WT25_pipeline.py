@@ -1,4 +1,6 @@
 import argparse
+import os
+import shutil
 import subprocess
 import sys
 
@@ -19,6 +21,11 @@ def main():
     args = parser.parse_args()
 
     python = sys.executable
+
+    for path in ("data/intermediate", "data/output"):
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        os.makedirs(path, exist_ok=True)
 
     run_step(
         "Cleaning notes",
