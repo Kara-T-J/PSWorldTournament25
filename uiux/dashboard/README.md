@@ -1,4 +1,4 @@
-# Penspinning World Tournament 2025 score analysis
+# WT25 Dashboard
 
 Dashboard and tooling to explore PSWT 2025 scoring data with Dash.
 
@@ -10,7 +10,8 @@ biases and understanding how criteria affect outcomes.
 
 ## Data
 
-- Source file: `WT25_notes_cleaned.xlsx`
+- Source file: `data/source/WT25_notes_raw.xlsx`
+- Cleaned file: `data/intermediate/WT25_notes_cleaned.xlsx`
 - Expected columns: Participant, Round, Juge/Judge, Critere/Critère/Criteria, Note/Score
 - The "Total" criterion is treated separately when needed (it is the sum of other criteria).
 
@@ -25,19 +26,21 @@ biases and understanding how criteria affect outcomes.
 
 ## Project structure
 
-- `WT25_dashboard/` main analytics dashboard
-- `dash_test.py` simple Dash app for quick checks
-- `WT25_data_cleaning.py` data prep helpers
-- `WT25_notes_cleaned.xlsx` cleaned dataset
+- `uiux/dashboard/` main analytics dashboard
+- `scripts/WT25_data_cleaning.py` data prep helpers
+- `scripts/WT25_zscore_builder.py` z-score + rank builder
+- `scripts/WT25_participant_clustering.py` clustering + PCA outputs
+- `scripts/WT25_pipeline.py` end-to-end pipeline (clean → zscore → cluster → dashboard)
+- `data/` source, intermediate, and output datasets
 
 ## Requirements
 
 - Python 3.9+
 
-## Quick start
+## Quick start (dashboard only)
 
 ```bash
-cd WT25_dashboard
+cd uiux/dashboard
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -45,6 +48,12 @@ python app_dashboard.py
 ```
 
 Open the URL printed in the terminal (default: `http://127.0.0.1:8050`).
+
+## Full pipeline
+
+```bash
+python3 scripts/WT25_pipeline.py --raw data/source/WT25_notes_raw.xlsx --sheet Notes2
+```
 
 ## Notes on methodology
 

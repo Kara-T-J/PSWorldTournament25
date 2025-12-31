@@ -5,7 +5,18 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
-DATA_PATH = "WT25_notes_cleaned.xlsx"
+DATA_PATH = "data/intermediate/WT25_notes_cleaned.xlsx"
+ZSCORE_PATH = "data/intermediate/WT25_zscore.xlsx"
+CLUSTER_PATH = "data/output/WT25_participant_clusters.csv"
+CLUSTER_SUMMARY_PATH = "data/output/WT25_cluster_summary.csv"
+PCA_LOADINGS_PATH = "data/output/WT25_pca_loadings.csv"
+PCA_EXPLAINED_PATH = "data/output/WT25_pca_explained_variance.csv"
+
+HEATMAP_COLORSCALE = [
+    [0.0, "#e67c73"],
+    [0.5, "#f4ede9"],
+    [1.0, "#57bb8a"],
+]
 
 app = Dash(__name__)
 
@@ -20,6 +31,20 @@ def load_data():
     # Load the cleaned Excel file from the project root.
     frame = pd.read_excel(DATA_PATH)
     return frame
+
+
+def load_optional_csv(path):
+    try:
+        return pd.read_csv(path)
+    except FileNotFoundError:
+        return None
+
+
+def load_optional_excel(path):
+    try:
+        return pd.read_excel(path)
+    except FileNotFoundError:
+        return None
 
 
 def uniq_sorted(frame, col):
@@ -42,8 +67,9 @@ def empty_fig(message):
     return finalize_fig(fig)
 
 
-def finalize_fig(fig):
-    fig.update_layout(title=None, showlegend=False, xaxis_title=None, yaxis_title=None)
+def finalize_fig(fig, keep_title=False):
+    title = fig.layout.title if keep_title else None
+    fig.update_layout(title=title, showlegend=False, xaxis_title=None, yaxis_title=None)
     return fig
 
 
@@ -74,7 +100,7 @@ def split_total(frame, criteria_col, total_label):
     is_total = criteria_series == total_value
     return frame[~is_total], frame[is_total]
 
-def heatmap_or_empty(pivot, title, empty_message, colorscale="RdBu", zmin=None, zmax=None):
+def heatmap_or_empty(pivot, title, empty_message, colorscale=HEATMAP_COLORSCALE, zmin=None, zmax=None):
     # Render heatmaps with in-cell values; fallback to a placeholder when empty.
     if pivot.empty:
         return empty_fig(empty_message)
@@ -87,7 +113,7 @@ def heatmap_or_empty(pivot, title, empty_message, colorscale="RdBu", zmin=None, 
         zmin=zmin,
         zmax=zmax,
     )
-    return finalize_fig(fig)
+    return finalize_fig(fig, keep_title=True)
 
 def column_widths(frame):
     widths = {}
@@ -101,6 +127,91 @@ def column_widths(frame):
         total += col_width
     widths["_total"] = total
     return widths
+
+
+def build_network_fig(z_df, clusters_df, threshold=0.4):
+    criteria_cols = [
+        c for c in z_df.columns
+        if str(c).strip().lower() not in {"participant", "round", "rank"}
+    ]
+    features = z_df[criteria_cols].apply(pd.to_numeric, errors="coerce").fillna(0).values
+    norms = np.linalg.norm(features, axis=1, keepdims=True)
+    norms[norms == 0] = 1
+    feats_norm = features / norms
+    sim = feats_norm @ feats_norm.T
+
+    participants = z_df["Participant"].tolist()
+    index_map = {p: i for i, p in enumerate(participants)}
+
+    coords = None
+    if clusters_df is not None and {"Participant", "PC1", "PC2"}.issubset(clusters_df.columns):
+        coords = (
+            clusters_df.set_index("Participant")[["PC1", "PC2"]]
+            .reindex(participants)
+            .fillna(0)
+            .values
+        )
+    else:
+        angles = np.linspace(0, 2 * np.pi, len(participants), endpoint=False)
+        coords = np.c_[np.cos(angles), np.sin(angles)]
+
+    cluster_map = {}
+    if clusters_df is not None and "Cluster" in clusters_df.columns:
+        cluster_map = clusters_df.set_index("Participant")["Cluster"].to_dict()
+
+    edges_x = []
+    edges_y = []
+    for i in range(len(participants)):
+        sim_row = sim[i]
+        top_idx = np.argsort(sim_row)[::-1][1:6]
+        for j in top_idx:
+            if sim_row[j] < threshold:
+                continue
+            if cluster_map and cluster_map.get(participants[i]) != cluster_map.get(participants[j]):
+                continue
+            edges_x += [coords[i, 0], coords[j, 0], None]
+            edges_y += [coords[i, 1], coords[j, 1], None]
+
+    edge_trace = go.Scatter(
+        x=edges_x,
+        y=edges_y,
+        mode="lines",
+        line=dict(width=1, color="rgba(60, 60, 60, 0.25)"),
+        hoverinfo="skip",
+    )
+
+    node_text = []
+    node_color = []
+    if cluster_map:
+        for p in participants:
+            node_text.append(f"{p} | Cluster {cluster_map.get(p, 'N/A')}")
+            node_color.append(cluster_map.get(p, -1))
+    else:
+        node_text = participants
+        node_color = "#444"
+
+    node_trace = go.Scatter(
+        x=coords[:, 0],
+        y=coords[:, 1],
+        mode="markers",
+        marker=dict(
+            size=8,
+            color=node_color,
+            colorscale="Viridis",
+            showscale=False,
+            line=dict(width=0.5, color="rgba(255, 255, 255, 0.7)"),
+        ),
+        text=node_text,
+        hoverinfo="text",
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        margin=dict(l=20, r=20, t=20, b=20),
+    )
+    return finalize_fig(fig)
 
 TRANSLATIONS = {
     "fr": {
@@ -121,6 +232,12 @@ TRANSLATIONS = {
         "tab_criteria": "Critères",
         "tab_rounds": "Rounds",
         "tab_spinners": "Spinners",
+        "spinners_pca": "Projection PCA (clusters)",
+        "spinners_cluster_rank": "Cluster vs classement",
+        "spinners_network": "Réseau de similarité des spinners",
+        "spinners_cluster_ranking": "Classement interne par cluster",
+        "spinners_loadings": "Chargements PCA (PC1/PC2)",
+        "no_cluster_data": "Données de clustering manquantes",
         "dist_notes": "Distribution des notes",
         "violin_criteria": "Notes par critère",
         "violin_judges": "Notes par juge",
@@ -134,7 +251,7 @@ TRANSLATIONS = {
         "judge_severity_heatmap": "Sévérité par critère",
         "judge_total_corr_heatmap": "Corrélation au Total",
         "judge_total_wo_corr_heatmap": "Corrélation critère au total du reste",
-        "judge_crit_bias_heatmap": "Biais relatif juge x critère (contrôle sévérité)",
+        "judge_crit_bias_heatmap": "Biais / sévérité par critère",
         "judge_part_bias_heatmap": "Biais relatif juge x participant (contrôle sévérité)",
         "criteria_mean": "Moyenne par critère",
         "criteria_heatmap": "Round x critère (moyennes)",
@@ -163,6 +280,12 @@ TRANSLATIONS = {
         "tab_criteria": "Criteria",
         "tab_rounds": "Rounds",
         "tab_spinners": "Spinners",
+        "spinners_pca": "PCA projection (clusters)",
+        "spinners_cluster_rank": "Cluster vs rank",
+        "spinners_network": "Spinner similarity network",
+        "spinners_cluster_ranking": "Cluster internal ranking",
+        "spinners_loadings": "PCA loadings (PC1/PC2)",
+        "no_cluster_data": "Missing clustering data",
         "dist_notes": "Score distribution",
         "violin_criteria": "Scores by criteria",
         "violin_judges": "Scores by judge",
@@ -170,14 +293,14 @@ TRANSLATIONS = {
         "box_rounds": "Scores by round",
         "judge_mean": "Average by judge",
         "judge_bias": "Judge bias (mean - overall)",
-        "judge_heatmap": "Heatmap judge x criteria (mean)",
-        "judge_std_heatmap": "Heatmap judge x criteria (spread)",
-        "judge_range_heatmap": "Heatmap judge x criteria (range)",
+        "judge_heatmap": "Average by criteria",
+        "judge_std_heatmap": "Spread by criteria",
+        "judge_range_heatmap": "Range by criteria",
         "judge_severity_heatmap": "Severity by judge and criteria (mean delta)",
         "judge_total_corr_heatmap": "Correlation with Total by judge and criteria",
         "judge_total_wo_corr_heatmap": "Correlation criterion vs total without criterion (by judge)",
-        "judge_crit_bias_heatmap": "Relative bias judge x criteria (severity-adjusted)",
-        "judge_part_bias_heatmap": "Relative bias judge x participant (severity-adjusted)",
+        "judge_crit_bias_heatmap": "Severity / bias by criteria",
+        "judge_part_bias_heatmap": "Severity / bias by spinner",
         "criteria_mean": "Average by criteria",
         "criteria_heatmap": "Round x criteria (means)",
         "criteria_corr": "Criteria correlation",
@@ -399,18 +522,19 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
             ))
 
         content = html.Div([
-            html.Div(grid, style={"flex": "0 0 auto", "overflowX": "auto"}),
+            html.Div(grid, className="viz-aggrid", style={"flex": "0 0 auto", "overflowX": "auto"}),
             html.Div([
-                dcc.Graph(figure=fig_criteria, style={"height": "34vh"}),
-                dcc.Graph(figure=fig_judges, style={"height": "34vh"}),
+                dcc.Graph(figure=fig_criteria, className="viz-graph viz-violin", style={"height": "34vh"}),
+                dcc.Graph(figure=fig_judges, className="viz-graph viz-violin", style={"height": "34vh"}),
             ], style={"flex": "1 1 0%   ", "minWidth": "320px", "display": "flex", "flexDirection": "column", "gap": "20px"}),
-        ], style={"display": "flex", "gap": "20px", "alignItems": "stretch", "flexWrap": "nowrap"})
+        ], className="tab-view tab-overview", style={"display": "flex", "gap": "20px", "alignItems": "stretch", "flexWrap": "nowrap"})
     elif tab == "judges":
         if dff_base.empty:
             fig_violin = empty_fig(t["no_data"])
             fig_mean = empty_fig(t["no_data"])
             fig_std = empty_fig(t["no_data"])
             fig_severity = empty_fig(t["no_data"])
+            fig_total_violin = empty_fig(t["no_data"])
         else:
             fig_violin = finalize_fig(px.violin(
                 dff_base,
@@ -448,15 +572,26 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
                 zmin=crit_bias.min().min() if not crit_bias.empty else None,
                 zmax=crit_bias.max().max() if not crit_bias.empty else None,
             )
+            if dff_total.empty:
+                fig_total_violin = empty_fig(t["no_data"])
+            else:
+                fig_total_violin = finalize_fig(px.violin(
+                    dff_total,
+                    x=COL_JUDGE,
+                    y=COL_SCORE,
+                    box=True,
+                    points="all",
+                ))
 
         content = html.Div([
-            dcc.Graph(figure=fig_violin, className="full-row"),
+            dcc.Graph(figure=fig_violin, className="viz-graph viz-violin full-row"),
             html.Div([
-                dcc.Graph(figure=fig_mean),
-                dcc.Graph(figure=fig_std),
-                dcc.Graph(figure=fig_severity),
+                dcc.Graph(figure=fig_mean, className="viz-graph viz-heatmap"),
+                dcc.Graph(figure=fig_std, className="viz-graph viz-heatmap"),
+                dcc.Graph(figure=fig_severity, className="viz-graph viz-heatmap"),
             ], className="graph-grid-3"),
-        ], className="stacked")
+            dcc.Graph(figure=fig_total_violin, className="viz-graph viz-violin full-row"),
+        ], className="tab-view tab-judges stacked")
     elif tab == "criteria":
         if dff_base.empty:
             fig_violin = empty_fig(t["no_data"])
@@ -524,20 +659,20 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
                     aspect="auto",
                     title=t["criteria_corr"],
                     text_auto=".2f",
-                    color_continuous_scale="RdBu",
+                    color_continuous_scale=HEATMAP_COLORSCALE,
                     zmin=-1,
                     zmax=1,
                 ))
 
         content = html.Div([
             html.Div([
-                dcc.Graph(figure=fig_violin),
+                dcc.Graph(figure=fig_violin, className="viz-graph viz-violin"),
             ], style={"flex": "1 1 55%"}),
             html.Div([
-                dcc.Graph(figure=fig_corr_total_wo),
-                dcc.Graph(figure=fig_corr),
+                dcc.Graph(figure=fig_corr_total_wo, className="viz-graph viz-heatmap"),
+                dcc.Graph(figure=fig_corr, className="viz-graph viz-heatmap"),
             ], style={"flex": "1 1 45%", "display": "flex", "flexDirection": "column", "gap": "20px"}),
-        ], style={"display": "flex", "gap": "20px", "alignItems": "stretch", "flexWrap": "nowrap"})
+        ], className="tab-view tab-criteria", style={"display": "flex", "gap": "20px", "alignItems": "stretch", "flexWrap": "nowrap"})
     elif tab == "rounds":
         if dff_total.empty:
             fig_total_rounds = empty_fig(t["no_data"])
@@ -562,14 +697,138 @@ def update_dashboard(participants, judges, rounds, criteria, tab, lang):
                 markers=True,
             ))
 
+        crit_graphs = []
+        if dff_base.empty:
+            crit_graphs.append(dcc.Graph(figure=empty_fig(t["no_data"])))
+        else:
+            for crit in sorted(dff_base[COL_CRITERIA].dropna().unique().tolist()):
+                sub = dff_base[dff_base[COL_CRITERIA] == crit]
+                fig = finalize_fig(px.violin(
+                    sub,
+                    x=COL_ROUND,
+                    y=COL_SCORE,
+                    box=True,
+                    points="all",
+                    title=str(crit),
+                ), keep_title=True)
+                graph_class = "viz-graph viz-violin rounds-crit-violin"
+                if str(crit).strip().lower() in {"créativité", "creativite", "construction"}:
+                    graph_class = f"{graph_class} rounds-crit-violin-large"
+                crit_graphs.append(dcc.Graph(figure=fig, className=graph_class))
+
         content = html.Div([
-            dcc.Graph(figure=fig_total_rounds, className="rounds-graph"),
-            dcc.Graph(figure=fig_trend, className="rounds-graph"),
-        ], className="graph-grid")
+            html.Div([
+                dcc.Graph(figure=fig_total_rounds, className="viz-graph viz-violin rounds-graph"),
+                dcc.Graph(figure=fig_trend, className="viz-graph viz-line rounds-graph"),
+            ], className="graph-grid"),
+            html.Div(crit_graphs, className="graph-grid"),
+        ], className="tab-view tab-rounds stacked")
     else:
+        clusters_df = load_optional_csv(CLUSTER_PATH)
+        loadings_df = load_optional_csv(PCA_LOADINGS_PATH)
+
+        if clusters_df is None or "PC1" not in clusters_df.columns or "PC2" not in clusters_df.columns:
+            fig_pca = empty_fig(t["no_cluster_data"])
+        else:
+            fig_pca = px.scatter(
+                clusters_df,
+                x="PC1",
+                y="PC2",
+                color="Cluster",
+                hover_data=[c for c in ["Participant", "Round", "Rank"] if c in clusters_df.columns],
+                color_discrete_sequence=px.colors.qualitative.Dark24,
+            )
+            fig_pca = finalize_fig(fig_pca)
+
+        if clusters_df is None or "Cluster" not in clusters_df.columns or "Rank" not in clusters_df.columns:
+            fig_rank = empty_fig(t["no_cluster_data"])
+        else:
+            fig_rank = px.violin(
+                clusters_df,
+                x="Cluster",
+                y="Rank",
+                box=True,
+                points="all",
+                color="Cluster",
+                hover_data=["Participant"],
+                color_discrete_sequence=px.colors.qualitative.Dark24,
+            )
+            fig_rank = finalize_fig(fig_rank)
+
+        rank_table = html.Div(t["no_cluster_data"])
+        if clusters_df is not None and {"Cluster", "Rank", "Participant"}.issubset(clusters_df.columns):
+            mean_ranks = (
+                clusters_df.groupby("Cluster")["Rank"]
+                .mean()
+                .sort_values()
+            )
+            clusters = mean_ranks.index.tolist()
+            clusters = clusters[:8]
+            max_rank = 17
+            rows = []
+            for rank in range(1, max_rank + 1):
+                row = {"Classement": rank}
+                for cluster_id in clusters:
+                    sub = clusters_df[clusters_df["Cluster"] == cluster_id].sort_values("Rank")
+                    name = ""
+                    if len(sub) >= rank:
+                        participant = sub.iloc[rank - 1]["Participant"]
+                        pr = sub.iloc[rank - 1]["Rank"]
+                        name = f"{participant} ({int(pr)})"
+                    row[f"cluster_{cluster_id}"] = name
+                rows.append(row)
+
+            column_defs = [{"field": "Classement", "headerName": "Classement"}]
+            for cluster_id in clusters:
+                sub = clusters_df[clusters_df["Cluster"] == cluster_id]
+                mean_rank = sub["Rank"].mean()
+                column_defs.append(
+                    {
+                        "field": f"cluster_{cluster_id}",
+                        "headerName": f"Cluster {cluster_id} | μ {mean_rank:.2f}",
+                    }
+                )
+            rank_table = dag.AgGrid(
+                rowData=rows,
+                columnDefs=column_defs,
+                defaultColDef={"filter": False, "sortable": False, "resizable": True},
+                className="viz-aggrid",
+                style={"height": "60vh", "width": "100%"},
+            )
+
+        loadings_kpis = html.Div(t["no_cluster_data"])
+        if loadings_df is not None and {"PC1", "PC2"}.issubset(loadings_df.columns):
+            crit_col = None
+            for col in loadings_df.columns:
+                if col not in {"PC1", "PC2"}:
+                    crit_col = col
+                    break
+            loadings_work = loadings_df.copy()
+            if crit_col is not None:
+                loadings_work = loadings_work.set_index(crit_col)
+
+            top_pc1 = loadings_work["PC1"].abs().sort_values(ascending=False).head(4)
+            top_pc2 = loadings_work["PC2"].abs().sort_values(ascending=False).head(4)
+            top_pc1_str = ", ".join([f"{idx} ({loadings_work.loc[idx, 'PC1']:.2f})" for idx in top_pc1.index])
+            top_pc2_str = ", ".join([f"{idx} ({loadings_work.loc[idx, 'PC2']:.2f})" for idx in top_pc2.index])
+            loadings_kpis = html.Div([
+                html.Div(f"PC1: {top_pc1_str}", className="kpi"),
+                html.Div(f"PC2: {top_pc2_str}", className="kpi"),
+            ], style={"display": "grid", "gridTemplateColumns": "repeat(auto-fit, minmax(160px, 1fr))", "gap": "10px", "marginTop": "20px"})
+
         content = html.Div([
-            html.P("Section à définir."),
-        ])
+            loadings_kpis,
+            html.Div([
+                dcc.Graph(figure=fig_pca, className="viz-graph viz-scatter", style={"height": "90vh"}),
+            ], style={"marginTop": "20px"}),
+            html.Div([
+                dcc.Graph(figure=fig_rank, className="viz-graph viz-violin", style={"height": "90vh"}),
+            ], style={"marginTop": "20px"}),
+            html.Div([
+                html.H3(t["spinners_cluster_ranking"]),
+                rank_table,
+            ], style={"marginTop": "20px"}),
+        ], className="tab-view tab-spinners")
 
     return (content, kpi_notes, kpi_participants)
 

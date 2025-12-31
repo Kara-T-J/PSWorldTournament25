@@ -1,2 +1,4 @@
 .DS_Store
-PSWT25_Manuel.py
+WT25_manual_dashboard.py
+data/intermediate/*
+data/output/*

@@ -1,9 +1,16 @@
 # This script is used to clean raw ratings data by removing null values.
 
 # Import
+import argparse
 import pandas as pd
 
-data = pd.read_excel("WT25_notes_raw.xlsx", sheet_name="Notes2")
+parser = argparse.ArgumentParser(description="Clean raw WT25 notes.")
+parser.add_argument("--input", default="data/source/WT25_notes_raw.xlsx", help="Raw notes file.")
+parser.add_argument("--output", default="data/intermediate/WT25_notes_cleaned.xlsx", help="Cleaned output file.")
+parser.add_argument("--sheet", default="Notes2", help="Sheet name in the raw file.")
+args = parser.parse_args()
+
+data = pd.read_excel(args.input, sheet_name=args.sheet)
 
 # Database preparation
 
@@ -36,4 +43,4 @@ def clean_data(df):
     return cleaned_df
 
 cleaned_df = clean_data(data)
-cleaned_df.to_excel("WT25_notes_cleaned.xlsx", index=False)
+cleaned_df.to_excel(args.output, index=False)

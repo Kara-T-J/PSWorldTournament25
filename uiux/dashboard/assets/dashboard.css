@@ -99,6 +99,7 @@ button:hover {
 .graph-grid-3 {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  height: 500px;
 }
 
 .stacked {
@@ -111,22 +112,67 @@ button:hover {
   width: 100%;
 }
 
-.graph-grid .js-plotly-plot {
+.tab-view .viz-graph,
+.tab-view .viz-heatmap,
+.tab-view .viz-violin,
+.tab-view .viz-line,
+.tab-view .viz-scatter {
   width: 100%;
 }
 
-.graph-grid .dash-graph {
+.tab-view .viz-graph .js-plotly-plot {
   width: 100%;
+}
+
+.tab-view .viz-aggrid {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tab-overview .viz-graph {
   background: rgba(50, 255, 255, 0.9);
 }
 
-.graph-grid-3 .dash-graph {
-  width: 100%;
+.tab-overview .viz-heatmap,
+.tab-overview .viz-violin,
+.tab-overview .viz-line,
+.tab-overview .viz-scatter {
+  margin-top: 11px;
+  margin-bottom: -11px;
 }
 
 .rounds-graph {
   min-height: 630px;
   max-height: 630px;
+}
+
+.rounds-crit-violin {
+  min-height: 70vh;
+}
+
+.cluster-rank-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.cluster-rank-block {
+  border-radius: 12px;
+  border: 1px solid rgba(21, 21, 21, 0.08);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 10px 12px;
+}
+
+.cluster-rank-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.cluster-rank-list {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
 }
 
 @media (max-width: 900px) {
@@ -139,6 +185,10 @@ button:hover {
   }
 
   .graph-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .cluster-rank-grid {
     grid-template-columns: 1fr;
   }
 }
